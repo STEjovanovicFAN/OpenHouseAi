@@ -97,11 +97,109 @@ def api_action():
         return bad_request(400)
         print(e)
 
-    return(jsonify("200"))    
+    return(jsonify("200"))  
+
+#log dump
+@app.route('/api/v1/resources/logdump', methods=['GET'])
+def logdump():
+    query_parameters = request.args
+    
+    userId = query_parameters.get('userId')
+    lowerTimeRange = query_parameters.get('lowerTimeRange')
+    upperTimeRange = query_parameters.get('upperTimeRange')
+    logType = query_parameters.get('logType')
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = dict_factory
+    cur = conn.cursor()
+
+    query = "SELECT * FROM user"
+    to_filter = []
+    
+    if userId:
+        query += " WHERE id = ?"
+        to_filter.append(userId)
+
+    query += ";"
+    dictOfUsers = cur.execute(query, to_filter).fetchall()
+
+    jsoncollection = []
+
+    for i in dictOfUsers:
+        queryUserId = i['id']
+        querySessionId = i['sessionId']
+        
+        to_filter = []
+        countQuery = "SELECT COUNT(type) FROM action WHERE user_sessionId = ?"
+        query = "SELECT * FROM action WHERE user_sessionId = ?"
+        to_filter.append(querySessionId)
+
+        if logType:
+            countQuery += " AND type = ?"
+            query += " AND type = ?"
+            to_filter.append(logType)
+
+        if lowerTimeRange:
+            countQuery += " AND time >= ?"
+            query += " AND time >= ?"
+            to_filter.append(lowerTimeRange)
+
+        if upperTimeRange:
+            countQuery += " AND time < ?"
+            query += " AND time < ?"
+            to_filter.append(upperTimeRange)        
+
+        countQuery += ";"
+        countActions = cur.execute(countQuery, to_filter).fetchall()
+        queryActions = cur.execute(query, to_filter).fetchall()
+
+        if countActions[0]['COUNT(type)'] > 0:
+
+            jsondata = {}
+            jsondata['userId'] = queryUserId
+            jsondata['sessionId'] = querySessionId
+            jsondata['actions'] = []
+
+            for j in queryActions:
+                actiondata = {}
+                propertiesdata = {} 
+
+                queryTime = j['time']
+                queryType = j['type']
+                queryLocX = j['locationX']
+                queryLocY = j['locationY']
+                queryViewedID = j['viewedId']
+                queryPageFrom = j['pageFrom']
+                queryPageTo = j['pageTo']
+
+                actiondata['time'] = queryTime
+                actiondata['type'] = queryType
+
+                if queryLocX:
+                    propertiesdata['locationX'] = queryLocX
+                if queryLocY:
+                    propertiesdata['locationY'] = queryLocX
+                if queryViewedID:
+                    propertiesdata['viewedId'] = queryViewedID
+                if queryPageFrom:
+                    propertiesdata['pageFrom'] = queryPageFrom
+                if queryPageTo:
+                    propertiesdata['pageTo'] = queryPageTo
+
+                actiondata['properties'] = propertiesdata
+                jsondata['actions'].append(actiondata)
+
+            jsoncollection.append(jsondata)
+
+
+    conn.commit()
+    cur.close()
+    return jsonify(jsoncollection)
+
+
 
 def initDB():
     conn = sqlite3.connect(db_path)
-    conn.row_factory = dict_factory
     cur = conn.cursor()
     try:
         cur.execute("""CREATE TABLE IF NOT EXISTS user (
@@ -112,7 +210,7 @@ def initDB():
         cur.execute("""CREATE TABLE IF NOT EXISTS action (
                         time DATETIME DEFAULT CURRENT_TIMESTAMP,
                         user_sessionId TEXT,
-                        type TEXT,
+                        type TEXT NOT NULL,
                         locationX INTEGER,
                         locationY INTEGER,
                         viewedId TEXT,

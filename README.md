@@ -79,4 +79,10 @@ You can use this get request to verify [http://127.0.0.1:5000/api/v1/resources/a
 Lastly we can use this get request to retrieve all log files from the user id "ABC123XYZ": 
 [http://127.0.0.1:5000/api/v1/resources/logdump?userId=ABC123XYZ](http://127.0.0.1:5000/api/v1/resources/logdump?userId=ABC123XYZ)
 
-This will return us the JSON formatted as the sample log you gave for this coding test. I've also **included a screenshot of the final output for this last get request** labeled "Solution.PNG" that can be found in the gitrepo. 
+This will return us the JSON formatted as the sample log you gave for this coding test. You can also play around with the other params to get a more accurate  I've also **included a screenshot of the final output for this last get request** labeled "Solution.PNG" that can be found in the gitrepo. 
+
+## Follow Up Question
+
+I would probably look at the documentation for saas offerings, see whether I need a library or anything extra for creating the python api. Would also follow the simple example they usually have in the documentation. 
+
+I would also use a different database. Research if there's any cloud based database resources that I could use such as Azure data storage and try and configure how I would create tables, blobs, etc to make this solution work. Of course the database creds would ideally be stored in the pipeline and from there I would research how I would connect to the database and if I needed anything else to execute the sql queries.  

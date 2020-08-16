@@ -1,6 +1,8 @@
 import flask
-from flask import request, jsonify
 import sqlite3
+from flask import request, jsonify
+from databasehelper import initDB
+from extractdata import extractActionToData, extractUserToData
 
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
@@ -41,6 +43,9 @@ def api_user():
     id = query_parameters.get('id')
     sessionId = query_parameters.get('sessionId')
 
+    if not (id or sessionId):
+        return bad_request(400)
+
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
     try:
@@ -52,11 +57,11 @@ def api_user():
         cur.execute(sqlite_insert_with_param, data_tuple)
         conn.commit()
         cur.close()
-    except Error as e:
+    except Exception as e:
         return bad_request(400)
         print(e)
 
-    return(jsonify("200"))    
+    return(jsonify(success=True))    
 
 #get all actions, for testing
 @app.route('/api/v1/resources/action/all', methods=['GET'])
@@ -82,6 +87,9 @@ def api_action():
     pageFrom = query_parameters.get('pageFrom')
     pageTo = query_parameters.get('pageTo')
 
+    if not (user_sessionId):
+        return bad_request(400)
+
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
     try:
@@ -93,11 +101,11 @@ def api_action():
         cur.execute(sqlite_insert_with_param, data_tuple)
         conn.commit()
         cur.close()
-    except Error as e:
+    except Exception as e:
         return bad_request(400)
         print(e)
 
-    return(jsonify("200"))  
+    return(jsonify(success=True))  
 
 #log dump
 @app.route('/api/v1/resources/logdump', methods=['GET'])
@@ -154,73 +162,16 @@ def logdump():
         queryActions = cur.execute(query, to_filter).fetchall()
 
         if countActions[0]['COUNT(type)'] > 0:
-
-            jsondata = {}
-            jsondata['userId'] = queryUserId
-            jsondata['sessionId'] = querySessionId
-            jsondata['actions'] = []
-
+            jsondata = extractUserToData(queryUserId, querySessionId)
             for j in queryActions:
-                actiondata = {}
-                propertiesdata = {} 
-
-                queryTime = j['time']
-                queryType = j['type']
-                queryLocX = j['locationX']
-                queryLocY = j['locationY']
-                queryViewedID = j['viewedId']
-                queryPageFrom = j['pageFrom']
-                queryPageTo = j['pageTo']
-
-                actiondata['time'] = queryTime
-                actiondata['type'] = queryType
-
-                if queryLocX:
-                    propertiesdata['locationX'] = queryLocX
-                if queryLocY:
-                    propertiesdata['locationY'] = queryLocX
-                if queryViewedID:
-                    propertiesdata['viewedId'] = queryViewedID
-                if queryPageFrom:
-                    propertiesdata['pageFrom'] = queryPageFrom
-                if queryPageTo:
-                    propertiesdata['pageTo'] = queryPageTo
-
-                actiondata['properties'] = propertiesdata
+                actiondata = extractActionToData(j)
                 jsondata['actions'].append(actiondata)
 
             jsoncollection.append(jsondata)
-
 
     conn.commit()
     cur.close()
     return jsonify(jsoncollection)
 
-
-
-def initDB():
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
-    try:
-        cur.execute("""CREATE TABLE IF NOT EXISTS user (
-                        sessionId TEXT PRIMARY KEY,
-                        id TEXT NOT NULL
-                    ); """)
-
-        cur.execute("""CREATE TABLE IF NOT EXISTS action (
-                        time DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        user_sessionId TEXT,
-                        type TEXT NOT NULL,
-                        locationX INTEGER,
-                        locationY INTEGER,
-                        viewedId TEXT,
-                        pageFrom TEXT,
-                        pageTo TEXT,
-                        FOREIGN KEY (user_sessionId) REFERENCES user(sessionId)
-                    ); """)      
-        cur.close()
-    except Error as e:
-        print(e)
-
-initDB()
+initDB(db_path)
 app.run()
